@@ -2,6 +2,9 @@ import pytest
 
 from algebra.engine import (
     AlgebraError,
+    _MAX_EXPONENT,
+    _MAX_INPUT_LEN,
+    _MAX_INT_DIGITS,
     detect_mode,
     factor_expression,
     simplify_expression,
@@ -84,3 +87,83 @@ def test_rejects_empty_input():
 def test_rejects_garbage_input():
     with pytest.raises(AlgebraError):
         simplify_expression("2 + + x *")
+
+
+def test_implicit_multiplication():
+    assert simplify_expression("2x + 3").final == "2 x + 3"
+    assert simplify_expression("2(x+1)").final == "2 x + 2"
+    assert simplify_expression("x(x+1)").final == "x^{2} + x"
+    assert simplify_expression("(x+1)(x-1)").final == "x^{2} - 1"
+    assert simplify_expression("(x+1)2").final == "2 x + 2"
+
+
+def test_unary_signs_and_decimals():
+    assert simplify_expression("-x + +x").final == "0"
+    assert simplify_expression("1.5*x + 0.5*x").final == "2.0 x"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "abs(1)",
+        "True",
+        "__import__",
+        "open",
+        "x.__class__",
+        "lambda x: x",
+        "1 if 1 else 0",
+        "x[0]",
+    ],
+)
+def test_rejects_python_evaluation(text):
+    with pytest.raises(AlgebraError):
+        simplify_expression(text)
+
+
+@pytest.mark.parametrize("text", ["1e99", "0x10", "0b10", "0o10", "2j", "1_000"])
+def test_rejects_non_decimal_numbers(text):
+    with pytest.raises(AlgebraError):
+        simplify_expression(text)
+
+
+@pytest.mark.parametrize("text", ["x % 2", "x << 1", "x & 1", "~x", "5!", "'x'", "x + 1 # c"])
+def test_rejects_non_arithmetic_tokens(text):
+    with pytest.raises(AlgebraError):
+        simplify_expression(text)
+
+
+def test_rejects_unbalanced_parentheses():
+    with pytest.raises(AlgebraError):
+        simplify_expression("(x+1")
+
+
+def test_rejects_input_over_length_limit():
+    with pytest.raises(AlgebraError, match="too long"):
+        simplify_expression("x" * (_MAX_INPUT_LEN + 1))
+
+
+def test_integer_digit_limit():
+    n = "1" * _MAX_INT_DIGITS
+    assert simplify_expression(n).final == n
+    with pytest.raises(AlgebraError, match="too large"):
+        simplify_expression("1" * (_MAX_INT_DIGITS + 1))
+
+
+def test_exponent_limit():
+    assert simplify_expression(f"x**{_MAX_EXPONENT}").final == f"x^{{{_MAX_EXPONENT}}}"
+    with pytest.raises(AlgebraError, match="too large"):
+        simplify_expression(f"x**{_MAX_EXPONENT + 1}")
+    with pytest.raises(AlgebraError, match="too large"):
+        simplify_expression("10**99")
+
+
+def test_rejects_nested_exponentiation():
+    with pytest.raises(AlgebraError, match="too complex"):
+        simplify_expression("x**(x**2)")
+    with pytest.raises(AlgebraError, match="too complex"):
+        simplify_expression("2**(2**x)")
+
+
+def test_rejects_expression_that_is_too_complex():
+    with pytest.raises(AlgebraError, match="too complex"):
+        simplify_expression("+".join(["x"] * 50))

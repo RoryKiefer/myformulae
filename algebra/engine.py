@@ -11,26 +11,54 @@ Step-by-step explanations are hand-written for the common homework cases
 factoring, combining like terms). Anything outside those patterns still gets
 a correct final answer from SymPy, with a note that steps aren't available.
 """
+import ast
+import math
+import re
 from dataclasses import dataclass, field
-from typing import List, Optional
+from io import StringIO
+from tokenize import (
+    ENCODING,
+    ENDMARKER,
+    NAME,
+    NEWLINE,
+    NL,
+    NUMBER,
+    OP,
+    TokenError,
+    generate_tokens,
+    untokenize,
+)
+from typing import List
 
 import sympy
-from sympy import Symbol, Eq, Poly, cancel, expand, factor, factor_list, solve, sqrt, latex, simplify
-from sympy.parsing.sympy_parser import (
-    parse_expr,
-    standard_transformations,
-    implicit_multiplication_application,
-    convert_xor,
+from sympy import (
+    Eq,
+    Float,
+    Integer,
+    Poly,
+    Pow,
+    Symbol,
+    cancel,
+    expand,
+    factor,
+    factor_list,
+    latex,
+    simplify,
+    solve,
+    sqrt,
 )
+from sympy.core.traversal import preorder_traversal
 
 x = Symbol("x")
 
-_TRANSFORMATIONS = standard_transformations + (
-    implicit_multiplication_application,
-    convert_xor,
-)
-
 _MAX_INPUT_LEN = 200
+_MAX_INT_DIGITS = 10
+_MAX_EXPONENT = 10
+_MAX_NODES = 80
+
+_ALLOWED_OPS = frozenset({"+", "-", "*", "/", "**", "^", "(", ")"})
+_NUMBER_RE = re.compile(r"^\d+(\.\d*)?$|^\.\d+$")
+_SKIP_TOKEN_TYPES = {ENCODING, NEWLINE, NL, ENDMARKER}
 
 
 class AlgebraError(ValueError):
@@ -46,6 +74,131 @@ class Result:
     note: str = ""
 
 
+def _parse_error(expr_str: str) -> AlgebraError:
+    return AlgebraError(f"Could not parse '{expr_str}' as a math expression.")
+
+
+def _needs_implicit_mul(prev: tuple, curr: tuple) -> bool:
+    prev_type, prev_val = prev
+    curr_type, curr_val = curr
+    if prev_type in {NUMBER, NAME} and curr_type == NAME:
+        return True
+    if prev_type in {NUMBER, NAME} and curr_type == OP and curr_val == "(":
+        return True
+    if prev_type == OP and prev_val == ")" and curr_type in {NAME, NUMBER}:
+        return True
+    if prev_type == OP and prev_val == ")" and curr_type == OP and curr_val == "(":
+        return True
+    return False
+
+
+def _check_number_token(token: str, expr_str: str) -> None:
+    if not _NUMBER_RE.fullmatch(token):
+        raise _parse_error(expr_str)
+    digits = token.replace(".", "")
+    if len(digits) > _MAX_INT_DIGITS:
+        raise AlgebraError("Number is too large.")
+
+
+def _to_python_expr(expr_str: str) -> str:
+    """Turn a homework expression into Python arithmetic, rejecting anything else.
+
+    Only ``x``, decimal numbers, and ``+ - * / ** ^ ( )`` are allowed. Implicit
+    multiplication (``2x``, ``2(x+1)``) is inserted here so we never hand the
+    string to SymPy's ``parse_expr`` / ``eval``.
+    """
+    try:
+        raw = list(generate_tokens(StringIO(expr_str).readline))
+    except TokenError as e:
+        raise _parse_error(expr_str) from e
+
+    tokens: List[tuple] = []
+    prev = None
+    for tok in raw:
+        if tok.type in _SKIP_TOKEN_TYPES:
+            continue
+        if tok.type == NAME:
+            if tok.string != "x":
+                raise AlgebraError(f"Only 'x' may be used as a variable (found: {tok.string}).")
+            pair = (NAME, "x")
+        elif tok.type == OP:
+            if tok.string not in _ALLOWED_OPS:
+                raise _parse_error(expr_str)
+            pair = (OP, "**" if tok.string == "^" else tok.string)
+        elif tok.type == NUMBER:
+            _check_number_token(tok.string, expr_str)
+            pair = (NUMBER, tok.string)
+        else:
+            raise _parse_error(expr_str)
+
+        if prev is not None and _needs_implicit_mul(prev, pair):
+            tokens.append((OP, "*"))
+        tokens.append(pair)
+        prev = pair
+
+    if not tokens:
+        raise AlgebraError("Expression is empty.")
+    return untokenize(tokens)
+
+
+def _safe_pow(base, exp):
+    if exp.is_number:
+        try:
+            mag = abs(float(exp))
+        except (TypeError, ValueError, OverflowError):
+            raise AlgebraError("Exponent is too large.")
+        if not math.isfinite(mag) or mag > _MAX_EXPONENT:
+            raise AlgebraError("Exponent is too large.")
+    elif any(getattr(node, "is_Pow", False) for node in preorder_traversal(exp)):
+        raise AlgebraError("Expression is too complex.")
+    return Pow(base, exp, evaluate=False)
+
+
+def _ast_to_expr(node, expr_str: str, stats: List[int]):
+    stats[0] += 1
+    if stats[0] > _MAX_NODES:
+        raise AlgebraError("Expression is too complex.")
+
+    if isinstance(node, ast.Expression):
+        return _ast_to_expr(node.body, expr_str, stats)
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
+            raise _parse_error(expr_str)
+        if isinstance(node.value, int):
+            if abs(node.value) >= 10 ** _MAX_INT_DIGITS:
+                raise AlgebraError("Number is too large.")
+            return Integer(node.value)
+        if not math.isfinite(node.value) or abs(node.value) >= 10 ** _MAX_INT_DIGITS:
+            raise AlgebraError("Number is too large.")
+        return Float(node.value)
+    if isinstance(node, ast.UnaryOp):
+        operand = _ast_to_expr(node.operand, expr_str, stats)
+        if isinstance(node.op, ast.UAdd):
+            return operand
+        if isinstance(node.op, ast.USub):
+            return -operand
+        raise _parse_error(expr_str)
+    if isinstance(node, ast.BinOp):
+        left = _ast_to_expr(node.left, expr_str, stats)
+        right = _ast_to_expr(node.right, expr_str, stats)
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+        if isinstance(node.op, ast.Div):
+            return left / right
+        if isinstance(node.op, ast.Pow):
+            return _safe_pow(left, right)
+        raise _parse_error(expr_str)
+    if isinstance(node, ast.Name):
+        if node.id == "x":
+            return x
+        raise AlgebraError(f"Only 'x' may be used as a variable (found: {node.id}).")
+    raise _parse_error(expr_str)
+
+
 def _parse(expr_str: str):
     expr_str = expr_str.strip()
     if not expr_str:
@@ -53,9 +206,13 @@ def _parse(expr_str: str):
     if len(expr_str) > _MAX_INPUT_LEN:
         raise AlgebraError("Expression is too long.")
     try:
-        expr = parse_expr(expr_str, transformations=_TRANSFORMATIONS, local_dict={"x": x}, evaluate=True)
-    except Exception as e:
-        raise AlgebraError(f"Could not parse '{expr_str}' as a math expression.") from e
+        code = _to_python_expr(expr_str)
+        tree = ast.parse(code, mode="eval")
+        expr = _ast_to_expr(tree, expr_str, [0])
+    except AlgebraError:
+        raise
+    except (SyntaxError, ValueError, RecursionError, MemoryError, OverflowError) as e:
+        raise _parse_error(expr_str) from e
     free = expr.free_symbols
     if free - {x}:
         extra = ", ".join(sorted(str(s) for s in free - {x}))

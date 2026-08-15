@@ -235,6 +235,15 @@ def solve_equation(text: str) -> Result:
     input_display = f"{latex(lhs)} = {latex(rhs)}"
     moved = expand(lhs - rhs)
 
+    if moved == 0:
+        return Result(
+            "solve",
+            input_display,
+            "\\text{Infinitely many solutions}",
+            [f"{latex(lhs)} = {latex(rhs)}", "0 = 0"],
+            note="Both sides are always equal — every value of x is a solution.",
+        )
+
     try:
         poly = Poly(moved, x) if moved.has(x) else None
     except sympy.PolynomialError:
@@ -344,8 +353,8 @@ def factor_expression(text: str) -> Result:
 
     steps = [latex(expr)]
 
-    content, factors = factor_list(expr)
-    if content != 1 and content != -1:
+    content, _factors = factor_list(expr)
+    if expr.has(x) and content != 1 and content != -1:
         remaining = expr / content
         steps.append(f"{latex(content)}\\left({latex(expand(remaining))}\\right)")
 

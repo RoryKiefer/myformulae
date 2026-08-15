@@ -1,4 +1,5 @@
 """Sanic web app: type an expression in x, get a step-by-step algebra solution."""
+import os
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -54,4 +55,5 @@ async def solve(request: Request):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, dev=True)
+    dev_mode = os.environ.get("APP_DEBUG", "false").lower() in {"1", "true", "yes"}
+    app.run(host="0.0.0.0", port=8000, dev=dev_mode)

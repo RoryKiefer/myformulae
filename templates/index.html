@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Algebra Helper</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+    integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+"
+    crossorigin="anonymous"
+  />
+  <script
+    defer
+    src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
+    integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg"
+    crossorigin="anonymous"
+  ></script>
+</head>
+<body>
+  <main class="page">
+    <h1>Algebra Helper</h1>
+    <p class="subtitle">Enter an expression using <code>x</code> as the variable.</p>
+
+    <form id="solve-form" class="solve-form" autocomplete="off">
+      <input
+        id="expression"
+        name="expression"
+        type="text"
+        placeholder="e.g. 2*x + 3 = 7"
+        autofocus
+      />
+
+      <div class="mode-row">
+        <span class="mode-label">Mode:</span>
+        <div class="mode-buttons" role="group" aria-label="Mode">
+          <button type="button" class="mode-btn" data-mode="auto">Auto</button>
+          <button type="button" class="mode-btn" data-mode="solve">Solve</button>
+          <button type="button" class="mode-btn" data-mode="simplify">Simplify</button>
+          <button type="button" class="mode-btn" data-mode="factor">Factor</button>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn">Submit</button>
+    </form>
+
+    <div id="error" class="error" hidden></div>
+
+    <section id="result" class="result" hidden>
+      <div class="result-block">
+        <div class="result-label">Input</div>
+        <div id="input-display" class="math"></div>
+      </div>
+
+      <div id="steps-block" class="result-block">
+        <div class="result-label">Steps</div>
+        <ol id="steps-list" class="steps-list"></ol>
+      </div>
+
+      <div id="note" class="note" hidden></div>
+
+      <div class="result-block">
+        <div class="result-label">Answer</div>
+        <div id="final-display" class="math final"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

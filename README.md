@@ -7,7 +7,7 @@ Coded in a couple of sessions via Claude Sonnet and Cursor as a thought experime
 - Sanic
 - Jinja
 - SymPy
-- UI or API
+- front-end/UI or API
 
 **Focus:**
 - demonstrating with genAI, software engineering best practices can be followed while also meeting deadlines

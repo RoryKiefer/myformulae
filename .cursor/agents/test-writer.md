@@ -1,6 +1,5 @@
 ---
 name: test-writer
-model: inherit
 description: Expert test writer for unit, component, E2E, and integration tests. Writes only high-value tests: branching, side effects, transactions, corner cases. Use for TDD or reviewing coverage. Never writes tests for constants, single pass-throughs, or thin wrappers. Adapts to the project's test framework and conventions.
 ---
 

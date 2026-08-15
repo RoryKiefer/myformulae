@@ -1,6 +1,5 @@
 ---
 name: config-writer
-model: inherit
 description: Decides where to store AI/editor behavior (agent, skill, rule, or central config) and creates/updates it. Use when adding or changing how the assistant behaves—writing or updating skills, agents, rules, or config. Adapt paths to your setup (e.g. .cursor/ for Cursor).
 ---
 

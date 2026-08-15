@@ -21,7 +21,7 @@ Coded in a couple of sessions via Claude Sonnet and Cursor as a thought experime
 #### Execution Instructions:
 - python3 -m venv .venv
 - .venv/Scripts/pip install -r ./requirements.txt (*use `pip.exe` if OS=Windows*)
-- .venv/Scripts/python.exe app.py
+- .venv/Scripts/python app.py (*use `python.exe` if OS=Windows*)
 
 #### Initial Claude (Sonnet 5) Prompt:
 `Assume the role of a python expert. Using sanic and sympy, design an application that takes an algebraic formula as input, and shows the solution as output. The input should be restricted to a single variable: x. Ask me a series of questions about architectural design decisions to help me arrive at the best solution.`

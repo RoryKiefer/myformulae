@@ -44,6 +44,27 @@ def test_solve_requires_equals_sign():
         solve_equation("2*x + 3")
 
 
+def test_solve_identity_has_infinite_solutions():
+    result = solve_equation("x = x")
+    assert result.final == "\\text{Infinitely many solutions}"
+    assert result.note
+
+
+def test_solve_identity_after_simplifying():
+    result = solve_equation("2*x + 2 = 2*x + 2")
+    assert result.final == "\\text{Infinitely many solutions}"
+
+
+def test_solve_identity_without_x():
+    result = solve_equation("5 = 5")
+    assert result.final == "\\text{Infinitely many solutions}"
+
+
+def test_solve_contradiction_has_no_solution():
+    result = solve_equation("x + 1 = x + 2")
+    assert result.final == "\\text{No solution}"
+
+
 def test_simplify_combines_like_terms():
     result = simplify_expression("x**2 + 2*x + x**2")
     assert result.final == "2 x^{2} + 2 x"
@@ -72,6 +93,12 @@ def test_factor_common_factor():
 def test_factor_irreducible_has_note():
     result = factor_expression("x^2 + 1")
     assert result.note != ""
+
+
+def test_factor_plain_number_has_no_spurious_step():
+    result = factor_expression("6")
+    assert result.steps == ["6"]
+    assert result.final == "6"
 
 
 def test_rejects_other_variables():

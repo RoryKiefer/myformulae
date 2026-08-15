@@ -1,2 +1,2 @@
-# mywidget
-rorys widget repository
+# myformulae
+rorys formula solver repository

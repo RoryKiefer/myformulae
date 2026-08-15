@@ -8,6 +8,7 @@ Coded in a couple of sessions via Claude Sonnet and Cursor as a thought experime
 - Jinja
 - SymPy
 - front-end/UI or API
+- containerized
 
 **Focus:**
 - demonstrating with genAI, software engineering best practices can be followed while also meeting deadlines
